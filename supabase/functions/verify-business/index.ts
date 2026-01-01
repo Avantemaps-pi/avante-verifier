@@ -6,6 +6,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-api-key',
 };
 
+const PI_HORIZON_API = 'https://api.mainnet.minepi.com';
+
 interface VerifyBusinessRequest {
   walletAddress: string;
   businessName: string;
@@ -28,19 +30,107 @@ interface VerifyBusinessResponse {
   error?: string;
 }
 
-// Mock Pi Network API - simulates blockchain data
-function mockPiNetworkAPI(walletAddress: string): { totalTransactions: number; uniqueWallets: number } {
-  console.log(`Verifying wallet: ${walletAddress}`);
+// Validate Pi Network wallet address (Stellar-compatible format)
+function isValidPiWalletAddress(address: string): boolean {
+  return /^G[A-Z2-7]{55}$/.test(address);
+}
+
+// Fetch all payments for an account with pagination from Pi Network blockchain
+async function fetchAccountPayments(walletAddress: string): Promise<{
+  totalTransactions: number;
+  uniqueWallets: Set<string>;
+}> {
+  const uniqueWallets = new Set<string>();
+  let totalTransactions = 0;
+  let cursor: string | undefined;
+  const limit = 200;
   
-  // Generate deterministic but varied results based on wallet address
-  const hash = walletAddress.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  console.log(`Fetching payments from Pi Network for wallet: ${walletAddress}`);
   
-  const totalTransactions = Math.floor((hash % 500) + 50);
-  const uniqueWallets = Math.floor((hash % 150) + 10);
+  try {
+    while (true) {
+      const url = new URL(`${PI_HORIZON_API}/accounts/${walletAddress}/payments`);
+      url.searchParams.set('limit', limit.toString());
+      url.searchParams.set('order', 'desc');
+      if (cursor) {
+        url.searchParams.set('cursor', cursor);
+      }
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
+      
+      const response = await fetch(url.toString(), {
+        signal: controller.signal,
+        headers: {
+          'Accept': 'application/json',
+        },
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        if (response.status === 404) {
+          console.log('Account not found on Pi Network blockchain');
+          return { totalTransactions: 0, uniqueWallets: new Set() };
+        }
+        throw new Error(`Pi Network API error: ${response.status} ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      const records = data._embedded?.records || [];
+      
+      console.log(`Fetched ${records.length} payment records`);
+      
+      if (records.length === 0) {
+        break;
+      }
+      
+      for (const payment of records) {
+        if (['payment', 'path_payment', 'path_payment_strict_send', 'path_payment_strict_receive'].includes(payment.type)) {
+          totalTransactions++;
+          
+          const counterparty = payment.from === walletAddress ? payment.to : payment.from;
+          if (counterparty && counterparty !== walletAddress) {
+            uniqueWallets.add(counterparty);
+          }
+        }
+      }
+      
+      cursor = records[records.length - 1]?.paging_token;
+      
+      if (totalTransactions >= 10000) {
+        console.log('Reached transaction limit (10,000), stopping pagination');
+        break;
+      }
+      
+      if (records.length < limit) {
+        break;
+      }
+    }
+    
+    console.log(`Total transactions found: ${totalTransactions}, Unique wallets: ${uniqueWallets.size}`);
+    return { totalTransactions, uniqueWallets };
+  } catch (error: unknown) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('Pi Network API request timed out');
+    }
+    console.error('Error fetching payments from Pi Network:', error);
+    throw error;
+  }
+}
+
+// Verify wallet on Pi Network blockchain
+async function verifyWalletOnPiNetwork(walletAddress: string): Promise<{
+  totalTransactions: number;
+  uniqueWallets: number;
+}> {
+  console.log(`Querying Pi Network blockchain for wallet: ${walletAddress}`);
+  
+  const { totalTransactions, uniqueWallets } = await fetchAccountPayments(walletAddress);
   
   return {
     totalTransactions,
-    uniqueWallets
+    uniqueWallets: uniqueWallets.size,
   };
 }
 
@@ -78,13 +168,13 @@ serve(async (req) => {
     
     console.log('Received verification request:', { walletAddress, businessName, externalUserId });
 
-    // Input validation
-    if (!walletAddress || walletAddress.trim().length < 10) {
-      console.error('Invalid wallet address format');
+    // Validate wallet address format
+    if (!isValidPiWalletAddress(walletAddress.trim())) {
+      console.error('Invalid Pi wallet address format');
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: 'Invalid wallet address format. Please provide a valid Pi Network wallet address.' 
+          error: 'Invalid Pi Network wallet address format. Must be a valid Stellar-compatible address starting with G.' 
         } as VerifyBusinessResponse),
         {
           status: 400,
@@ -121,14 +211,11 @@ serve(async (req) => {
       );
     }
 
-    // Simulate API delay for realistic feel
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
-    // Get mock data from Pi Network
-    const mockData = mockPiNetworkAPI(walletAddress);
-    const { totalTransactions, uniqueWallets } = mockData;
+    // Query real Pi Network blockchain
+    console.log('Querying Pi Network blockchain...');
+    const { totalTransactions, uniqueWallets } = await verifyWalletOnPiNetwork(walletAddress.trim());
     
-    console.log('Pi Network verification data:', mockData);
+    console.log('Pi Network blockchain data:', { totalTransactions, uniqueWallets });
 
     // Business rules evaluation
     const meetsRequirements = totalTransactions >= 100 && uniqueWallets >= 10;
