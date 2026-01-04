@@ -305,6 +305,342 @@ app.post('/webhook/verification', (req, res) => {
 const client = new VerificationClient('your-api-key');
 const result = await client.verify('GXXX...', 'My Shop', 'user_123');`;
 
+  // TypeScript SDK Examples
+  const tsInstallExample = `npm install axios
+# or
+yarn add axios`;
+
+  const tsTypesExample = `// types.ts - Complete type definitions for the Verification API
+
+export interface VerificationRequest {
+  walletAddress: string;
+  businessName: string;
+  externalUserId: string;
+  forceRefresh?: boolean;
+  webhookUrl?: string;
+  webhookSecret?: string;
+}
+
+export interface VerificationData {
+  verificationId: string;
+  walletAddress: string;
+  businessName: string;
+  totalTransactions: number;
+  uniqueWallets: number;
+  meetsRequirements: boolean;
+  failureReason: string | null;
+  verificationStatus: 'pending' | 'approved' | 'rejected' | 'under_review';
+  verifiedAt: string;
+}
+
+export interface VerificationResponse {
+  success: boolean;
+  cached: boolean;
+  cacheExpiresAt: string;
+  webhookQueued: boolean;
+  data: VerificationData;
+}
+
+export interface BatchVerificationRequest {
+  verifications: Omit<VerificationRequest, 'forceRefresh' | 'webhookUrl' | 'webhookSecret'>[];
+  forceRefresh?: boolean;
+  webhookUrl?: string;
+  webhookSecret?: string;
+}
+
+export interface BatchResult {
+  walletAddress: string;
+  businessName: string;
+  success: boolean;
+  cached?: boolean;
+  data?: VerificationData;
+  error?: string;
+}
+
+export interface BatchVerificationResponse {
+  success: boolean;
+  batchId: string;
+  totalRequested: number;
+  totalProcessed: number;
+  totalSuccessful: number;
+  totalFailed: number;
+  webhookQueued: boolean;
+  results: BatchResult[];
+}
+
+export interface WebhookPayload {
+  event: 'verification.completed' | 'batch.completed';
+  timestamp: string;
+  data: VerificationData | BatchVerificationResponse;
+}
+
+export interface ApiError {
+  success: false;
+  error: string;
+}`;
+
+  const tsClientExample = `// client.ts - TypeScript SDK Client
+import type {
+  VerificationRequest,
+  VerificationResponse,
+  BatchVerificationRequest,
+  BatchVerificationResponse,
+  ApiError
+} from './types';
+
+export class VerificationClient {
+  private readonly baseUrl: string;
+  private readonly apiKey: string;
+
+  constructor(apiKey: string, baseUrl = '${baseUrl.replace('/verify-business', '')}') {
+    this.apiKey = apiKey;
+    this.baseUrl = baseUrl;
+  }
+
+  private async request<T>(endpoint: string, body: unknown): Promise<T> {
+    const response = await fetch(\`\${this.baseUrl}\${endpoint}\`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': this.apiKey,
+      },
+      body: JSON.stringify(body),
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error((data as ApiError).error || 'Request failed');
+    }
+    
+    return data as T;
+  }
+
+  async verify(request: VerificationRequest): Promise<VerificationResponse> {
+    return this.request<VerificationResponse>('/verify-business', request);
+  }
+
+  async verifyBatch(request: BatchVerificationRequest): Promise<BatchVerificationResponse> {
+    return this.request<BatchVerificationResponse>('/verify-business-batch', request);
+  }
+}
+
+// Usage example
+const client = new VerificationClient('your-api-key');
+
+// Single verification with full type safety
+const result = await client.verify({
+  walletAddress: 'GXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
+  businessName: 'My Coffee Shop',
+  externalUserId: 'user_123',
+  forceRefresh: false,
+});
+
+console.log(\`Status: \${result.data.verificationStatus}\`);
+console.log(\`Meets requirements: \${result.data.meetsRequirements}\`);`;
+
+  const tsBatchExample = `// Batch verification with TypeScript
+const batchResult = await client.verifyBatch({
+  verifications: [
+    { walletAddress: 'GXXX...', businessName: 'Shop A', externalUserId: 'user_1' },
+    { walletAddress: 'GYYY...', businessName: 'Shop B', externalUserId: 'user_2' },
+  ],
+  forceRefresh: false,
+  webhookUrl: 'https://your-server.com/webhook',
+});
+
+// Type-safe iteration over results
+batchResult.results.forEach((result) => {
+  if (result.success && result.data) {
+    console.log(\`\${result.businessName}: \${result.data.verificationStatus}\`);
+  } else {
+    console.error(\`\${result.businessName} failed: \${result.error}\`);
+  }
+});`;
+
+  const tsWebhookExample = `// webhook-handler.ts - Express.js with TypeScript
+import express, { Request, Response } from 'express';
+import crypto from 'crypto';
+import type { WebhookPayload, VerificationData, BatchVerificationResponse } from './types';
+
+const app = express();
+app.use(express.json());
+
+const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || '';
+
+function verifySignature(payload: string, signature: string): boolean {
+  const expected = 'sha256=' + crypto
+    .createHmac('sha256', WEBHOOK_SECRET)
+    .update(payload)
+    .digest('hex');
+  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
+}
+
+function isVerificationData(data: unknown): data is VerificationData {
+  return typeof data === 'object' && data !== null && 'verificationId' in data;
+}
+
+app.post('/webhook/verification', (req: Request, res: Response) => {
+  const signature = req.headers['x-webhook-signature'] as string;
+  
+  if (WEBHOOK_SECRET && signature) {
+    if (!verifySignature(JSON.stringify(req.body), signature)) {
+      return res.status(401).json({ error: 'Invalid signature' });
+    }
+  }
+  
+  const payload = req.body as WebhookPayload;
+  
+  if (payload.event === 'verification.completed' && isVerificationData(payload.data)) {
+    console.log(\`Single verification: \${payload.data.verificationStatus}\`);
+  } else if (payload.event === 'batch.completed') {
+    const batch = payload.data as BatchVerificationResponse;
+    console.log(\`Batch complete: \${batch.totalSuccessful}/\${batch.totalProcessed}\`);
+  }
+  
+  res.status(200).json({ received: true });
+});`;
+
+  const tsReactHookExample = `// useVerification.ts - React Query hook
+import { useMutation, useQuery } from '@tanstack/react-query';
+import type { VerificationRequest, VerificationResponse } from './types';
+
+const API_KEY = import.meta.env.VITE_VERIFICATION_API_KEY;
+const BASE_URL = '${baseUrl.replace('/verify-business', '')}';
+
+async function verifyBusiness(request: VerificationRequest): Promise<VerificationResponse> {
+  const response = await fetch(\`\${BASE_URL}/verify-business\`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': API_KEY,
+    },
+    body: JSON.stringify(request),
+  });
+  
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Verification failed');
+  }
+  
+  return response.json();
+}
+
+export function useVerifyBusiness() {
+  return useMutation({
+    mutationFn: verifyBusiness,
+    onSuccess: (data) => {
+      console.log('Verification complete:', data.data.verificationStatus);
+    },
+    onError: (error: Error) => {
+      console.error('Verification failed:', error.message);
+    },
+  });
+}
+
+// Usage in React component
+function VerificationButton({ walletAddress, businessName }: Props) {
+  const { mutate, isPending, data, error } = useVerifyBusiness();
+  
+  return (
+    <button 
+      onClick={() => mutate({ walletAddress, businessName, externalUserId: 'user_123' })}
+      disabled={isPending}
+    >
+      {isPending ? 'Verifying...' : 'Verify Business'}
+    </button>
+  );
+}`;
+
+  // cURL Examples
+  const curlSingleExample = `# Single verification request
+curl -X POST "${baseUrl}" \\
+  -H "Content-Type: application/json" \\
+  -H "x-api-key: YOUR_API_KEY" \\
+  -d '{
+    "walletAddress": "GXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+    "businessName": "My Business",
+    "externalUserId": "user_123"
+  }'`;
+
+  const curlForceRefreshExample = `# Force refresh to bypass cache
+curl -X POST "${baseUrl}" \\
+  -H "Content-Type: application/json" \\
+  -H "x-api-key: YOUR_API_KEY" \\
+  -d '{
+    "walletAddress": "GXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+    "businessName": "My Business",
+    "externalUserId": "user_123",
+    "forceRefresh": true
+  }'`;
+
+  const curlWebhookExample = `# With webhook notification
+curl -X POST "${baseUrl}" \\
+  -H "Content-Type: application/json" \\
+  -H "x-api-key: YOUR_API_KEY" \\
+  -d '{
+    "walletAddress": "GXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+    "businessName": "My Business",
+    "externalUserId": "user_123",
+    "webhookUrl": "https://your-server.com/webhook",
+    "webhookSecret": "your_webhook_secret"
+  }'`;
+
+  const curlBatchExample = `# Batch verification (up to 10 wallets)
+curl -X POST "${batchUrl}" \\
+  -H "Content-Type: application/json" \\
+  -H "x-api-key: YOUR_API_KEY" \\
+  -d '{
+    "verifications": [
+      {
+        "walletAddress": "GXXX...",
+        "businessName": "Business One",
+        "externalUserId": "user_001"
+      },
+      {
+        "walletAddress": "GYYY...",
+        "businessName": "Business Two",
+        "externalUserId": "user_002"
+      }
+    ],
+    "forceRefresh": false,
+    "webhookUrl": "https://your-server.com/batch-webhook"
+  }'`;
+
+  const curlVerboseExample = `# Verbose output with headers
+curl -v -X POST "${baseUrl}" \\
+  -H "Content-Type: application/json" \\
+  -H "x-api-key: YOUR_API_KEY" \\
+  -d '{"walletAddress": "GXXX...", "businessName": "Test", "externalUserId": "test_1"}'
+
+# Response headers include:
+# X-Cache: HIT or MISS
+# X-Cache-Expires: ISO timestamp
+# X-RateLimit-Limit: 5
+# X-RateLimit-Remaining: 4
+# X-RateLimit-Reset: ISO timestamp`;
+
+  const curlJqExample = `# Parse response with jq
+curl -s -X POST "${baseUrl}" \\
+  -H "Content-Type: application/json" \\
+  -H "x-api-key: YOUR_API_KEY" \\
+  -d '{
+    "walletAddress": "GXXX...",
+    "businessName": "My Shop",
+    "externalUserId": "user_123"
+  }' | jq '.data.verificationStatus'
+
+# Extract specific fields
+curl -s -X POST "${baseUrl}" \\
+  -H "Content-Type: application/json" \\
+  -H "x-api-key: YOUR_API_KEY" \\
+  -d '...' | jq '{
+    status: .data.verificationStatus,
+    transactions: .data.totalTransactions,
+    wallets: .data.uniqueWallets,
+    approved: .data.meetsRequirements
+  }'`;
+
   // Python SDK Examples
   const pyInstallExample = `pip install requests`;
 
@@ -659,8 +995,12 @@ result = client.verify("GXXX...", "My Shop", "user_123")`;
                 Use these code examples to integrate the Verification API into your application.
               </p>
 
-              <Tabs defaultValue="javascript" className="w-full">
-                <TabsList className="mb-4">
+              <Tabs defaultValue="typescript" className="w-full">
+                <TabsList className="mb-4 flex-wrap h-auto gap-1">
+                  <TabsTrigger value="typescript" className="flex items-center gap-2">
+                    <Code className="h-4 w-4" />
+                    TypeScript
+                  </TabsTrigger>
                   <TabsTrigger value="javascript" className="flex items-center gap-2">
                     <Terminal className="h-4 w-4" />
                     JavaScript
@@ -669,7 +1009,43 @@ result = client.verify("GXXX...", "My Shop", "user_123")`;
                     <Code className="h-4 w-4" />
                     Python
                   </TabsTrigger>
+                  <TabsTrigger value="curl" className="flex items-center gap-2">
+                    <Terminal className="h-4 w-4" />
+                    cURL
+                  </TabsTrigger>
                 </TabsList>
+
+                <TabsContent value="typescript" className="space-y-6">
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-foreground">Installation</p>
+                    <CodeBlock code={tsInstallExample} language="bash" />
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-foreground">Type Definitions</p>
+                    <CodeBlock code={tsTypesExample} language="typescript" />
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-foreground">SDK Client Class</p>
+                    <CodeBlock code={tsClientExample} language="typescript" />
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-foreground">Batch Verification</p>
+                    <CodeBlock code={tsBatchExample} language="typescript" />
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-foreground">Webhook Handler (Express + TypeScript)</p>
+                    <CodeBlock code={tsWebhookExample} language="typescript" />
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-foreground">React Query Hook</p>
+                    <CodeBlock code={tsReactHookExample} language="typescript" />
+                  </div>
+                </TabsContent>
 
                 <TabsContent value="javascript" className="space-y-6">
                   <div className="space-y-2">
@@ -722,6 +1098,44 @@ result = client.verify("GXXX...", "My Shop", "user_123")`;
                   <div className="space-y-2">
                     <p className="text-sm font-medium text-foreground">Full Client Class</p>
                     <CodeBlock code={pyClientClassExample} language="python" />
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="curl" className="space-y-6">
+                  <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 mb-4">
+                    <p className="text-sm text-foreground">
+                      <strong>Tip:</strong> All examples include copy functionality. Click the copy button in the top-right corner of each code block.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-foreground">Single Verification</p>
+                    <CodeBlock code={curlSingleExample} language="bash" />
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-foreground">Force Cache Refresh</p>
+                    <CodeBlock code={curlForceRefreshExample} language="bash" />
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-foreground">With Webhook</p>
+                    <CodeBlock code={curlWebhookExample} language="bash" />
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-foreground">Batch Verification</p>
+                    <CodeBlock code={curlBatchExample} language="bash" />
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-foreground">Verbose Output with Headers</p>
+                    <CodeBlock code={curlVerboseExample} language="bash" />
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-foreground">Parse Response with jq</p>
+                    <CodeBlock code={curlJqExample} language="bash" />
                   </div>
                 </TabsContent>
               </Tabs>
