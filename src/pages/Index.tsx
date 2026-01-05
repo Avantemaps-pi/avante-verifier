@@ -4,6 +4,7 @@ import { VerificationForm } from "@/components/VerificationForm";
 import { VerificationResults } from "@/components/VerificationResults";
 import { Button } from "@/components/ui/button";
 import { FileText } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 interface VerificationData {
   verificationId: string;
@@ -27,8 +28,9 @@ const Index = () => {
       <div className="absolute top-20 left-10 w-72 h-72 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-20 right-10 w-96 h-96 bg-destructive/10 rounded-full blur-3xl pointer-events-none" />
 
-      {/* API Docs Link */}
-      <div className="absolute top-4 right-4 z-20">
+      {/* Top Bar */}
+      <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+        <ThemeToggle />
         <Link to="/docs">
           <Button variant="outline" size="sm" className="gap-2">
             <FileText className="h-4 w-4" />
