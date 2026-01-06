@@ -21,6 +21,27 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
     return "dark";
   });
 
+  const [isManuallySet, setIsManuallySet] = useState(() => {
+    return localStorage.getItem("theme") !== null;
+  });
+
+  // Listen for OS theme changes
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    
+    const handleChange = (e: MediaQueryListEvent) => {
+      // Only auto-switch if user hasn't manually set a preference
+      if (!isManuallySet) {
+        setThemeState(e.matches ? "dark" : "light");
+      }
+    };
+
+    mediaQuery.addEventListener("change", handleChange);
+    return () => mediaQuery.removeEventListener("change", handleChange);
+  }, [isManuallySet]);
+
   useEffect(() => {
     const root = document.documentElement;
     
@@ -40,10 +61,12 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
   }, [theme]);
 
   const toggleTheme = () => {
+    setIsManuallySet(true);
     setThemeState((prev) => (prev === "dark" ? "light" : "dark"));
   };
 
   const setTheme = (newTheme: Theme) => {
+    setIsManuallySet(true);
     setThemeState(newTheme);
   };
 
