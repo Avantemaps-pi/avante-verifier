@@ -266,7 +266,7 @@ serve(async (req) => {
 
     // Validate API key
     const apiKey = req.headers.get('x-api-key');
-    const validApiKey = Deno.env.get('PI_VERIFICATION_API_KEY');
+    const validApiKey = Deno.env.get('PI_API_KEY');
     
     if (!apiKey || apiKey !== validApiKey) {
       console.error('Invalid or missing API key');
