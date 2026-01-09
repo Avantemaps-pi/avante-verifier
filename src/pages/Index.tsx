@@ -5,6 +5,8 @@ import { VerificationResults } from "@/components/VerificationResults";
 import { Button } from "@/components/ui/button";
 import { FileText } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { PiLoginButton } from "@/components/PiLoginButton";
+import { usePiAuth } from "@/contexts/PiAuthContext";
 
 interface VerificationData {
   verificationId: string;
@@ -20,6 +22,7 @@ interface VerificationData {
 
 const Index = () => {
   const [verificationData, setVerificationData] = useState<VerificationData | null>(null);
+  const { user } = usePiAuth();
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 relative overflow-hidden">
@@ -30,6 +33,7 @@ const Index = () => {
 
       {/* Top Bar */}
       <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+        <PiLoginButton />
         <ThemeToggle />
         <Link to="/docs">
           <Button variant="outline" size="sm" className="gap-2">
@@ -56,7 +60,10 @@ const Index = () => {
 
         {/* Verification Form */}
         <div className="flex justify-center">
-          <VerificationForm onVerificationComplete={setVerificationData} />
+          <VerificationForm 
+            onVerificationComplete={setVerificationData} 
+            piUsername={user?.username}
+          />
         </div>
 
         {/* Results */}

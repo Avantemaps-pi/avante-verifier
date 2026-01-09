@@ -20,12 +20,16 @@ interface VerificationResult {
 
 interface VerificationFormProps {
   onVerificationComplete: (result: VerificationResult | null) => void;
+  piUsername?: string;
 }
 
-export const VerificationForm = ({ onVerificationComplete }: VerificationFormProps) => {
+export const VerificationForm = ({ onVerificationComplete, piUsername }: VerificationFormProps) => {
   const [walletAddress, setWalletAddress] = useState("");
   const [businessName, setBusinessName] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
+  
+  // Show logged-in username indicator if available
+  const usernameDisplay = piUsername ? `@${piUsername}` : null;
 
   const handleVerify = async () => {
     if (!walletAddress.trim()) {
@@ -79,8 +83,15 @@ export const VerificationForm = ({ onVerificationComplete }: VerificationFormPro
         <div className="p-3 rounded-xl bg-primary/10 border border-primary/20">
           <Shield className="w-6 h-6 text-primary" />
         </div>
-        <div>
-          <h2 className="text-2xl font-bold text-foreground">Verify Business</h2>
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <h2 className="text-2xl font-bold text-foreground">Verify Business</h2>
+            {usernameDisplay && (
+              <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">
+                {usernameDisplay}
+              </span>
+            )}
+          </div>
           <p className="text-sm text-muted-foreground">Enter Pi Network wallet address</p>
         </div>
       </div>
