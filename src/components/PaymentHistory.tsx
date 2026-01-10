@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, Receipt, ChevronDown, ChevronUp, ExternalLink, ChevronLeft, ChevronRight } from "lucide-react";
+import { Loader2, Receipt, ChevronDown, ChevronUp, ExternalLink, ChevronLeft, ChevronRight, TrendingUp, Hash, PieChart } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { usePiAuth } from "@/contexts/PiAuthContext";
 
@@ -34,6 +34,12 @@ interface PaginationInfo {
   totalPages: number;
 }
 
+interface PaymentSummary {
+  totalPayments: number;
+  totalAmount: number;
+  statusBreakdown: Record<string, { count: number; amount: number }>;
+}
+
 const PAGE_SIZE = 10;
 
 export const PaymentHistory = () => {
@@ -44,6 +50,7 @@ export const PaymentHistory = () => {
   const [hasLoaded, setHasLoaded] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pagination, setPagination] = useState<PaginationInfo | null>(null);
+  const [summary, setSummary] = useState<PaymentSummary | null>(null);
 
   const getExternalUserId = (): string => {
     if (user?.uid) {
@@ -68,6 +75,7 @@ export const PaymentHistory = () => {
       if (data?.success) {
         setPayments(data.data || []);
         setPagination(data.pagination || null);
+        setSummary(data.summary || null);
         setCurrentPage(page);
       }
     } catch (error) {
@@ -146,7 +154,46 @@ export const PaymentHistory = () => {
               </p>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-4">
+              {/* Summary Card */}
+              {summary && summary.totalPayments > 0 && (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+                  <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Hash className="h-4 w-4 text-primary" />
+                      <span className="text-xs text-muted-foreground">Total Payments</span>
+                    </div>
+                    <p className="text-lg font-semibold text-foreground">{summary.totalPayments}</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
+                    <div className="flex items-center gap-2 mb-1">
+                      <TrendingUp className="h-4 w-4 text-primary" />
+                      <span className="text-xs text-muted-foreground">Total Spent</span>
+                    </div>
+                    <p className="text-lg font-semibold text-foreground">{summary.totalAmount.toFixed(2)} π</p>
+                  </div>
+                  <div className="col-span-2 md:col-span-1 p-3 rounded-lg bg-primary/5 border border-primary/20">
+                    <div className="flex items-center gap-2 mb-1">
+                      <PieChart className="h-4 w-4 text-primary" />
+                      <span className="text-xs text-muted-foreground">By Status</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {Object.entries(summary.statusBreakdown).map(([status, data]) => (
+                        <Badge 
+                          key={status} 
+                          variant={getStatusBadgeVariant(status)}
+                          className="text-xs"
+                        >
+                          {status}: {data.count}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Payments List */}
+              <div className="space-y-3">
               {payments.map((payment) => (
                 <div
                   key={payment.id}
@@ -215,18 +262,19 @@ export const PaymentHistory = () => {
                 </div>
               )}
               
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => fetchPaymentHistory(currentPage)}
-                className="w-full mt-2"
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                ) : null}
-                Refresh
-              </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => fetchPaymentHistory(currentPage)}
+                  className="w-full mt-2"
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : null}
+                  Refresh
+                </Button>
+              </div>
             </div>
           )}
         </div>

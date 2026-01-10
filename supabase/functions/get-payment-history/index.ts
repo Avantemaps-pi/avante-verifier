@@ -38,22 +38,34 @@ serve(async (req: Request): Promise<Response> => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Get total count for pagination
-    const { count, error: countError } = await supabase
+    // Get all records for summary calculation
+    const { data: allRecords, error: summaryError } = await supabase
       .from('payment_records')
-      .select('*', { count: 'exact', head: true })
+      .select('amount, status')
       .eq('external_user_id', externalUserId);
 
-    if (countError) {
-      console.error('Failed to count payment records:', countError);
+    if (summaryError) {
+      console.error('Failed to fetch payment summary:', summaryError);
       return new Response(
         JSON.stringify({ success: false, error: 'Failed to fetch payment history' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
+    // Calculate summary statistics
+    const totalRecords = allRecords?.length || 0;
+    const totalAmount = allRecords?.reduce((sum, record) => sum + Number(record.amount), 0) || 0;
+    const statusBreakdown: Record<string, { count: number; amount: number }> = {};
+    
+    allRecords?.forEach((record) => {
+      if (!statusBreakdown[record.status]) {
+        statusBreakdown[record.status] = { count: 0, amount: 0 };
+      }
+      statusBreakdown[record.status].count += 1;
+      statusBreakdown[record.status].amount += Number(record.amount);
+    });
+
     // Calculate pagination
-    const totalRecords = count || 0;
     const totalPages = Math.ceil(totalRecords / pageSize);
     const offset = (page - 1) * pageSize;
 
@@ -81,6 +93,11 @@ serve(async (req: Request): Promise<Response> => {
           pageSize,
           totalRecords,
           totalPages,
+        },
+        summary: {
+          totalPayments: totalRecords,
+          totalAmount,
+          statusBreakdown,
         }
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
