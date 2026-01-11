@@ -6,8 +6,12 @@ import { PiLoginButton } from "@/components/PiLoginButton";
 import { MobileNav } from "@/components/MobileNav";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { PaymentHistory } from "@/components/PaymentHistory";
+import { Badge } from "@/components/ui/badge";
+import { usePaymentCount } from "@/hooks/usePaymentCount";
 
 export const Header = () => {
+  const { count } = usePaymentCount();
+
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between px-4">
@@ -28,9 +32,17 @@ export const Header = () => {
             {/* Payment History Sheet */}
             <Sheet>
               <SheetTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
+                <Button variant="outline" size="sm" className="gap-2 relative">
                   <Receipt className="h-4 w-4" />
                   Payment History
+                  {count > 0 && (
+                    <Badge 
+                      variant="secondary" 
+                      className="ml-1 h-5 min-w-5 px-1.5 flex items-center justify-center text-xs"
+                    >
+                      {count > 99 ? '99+' : count}
+                    </Badge>
+                  )}
                 </Button>
               </SheetTrigger>
               <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">

@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { PiLoginButton } from "@/components/PiLoginButton";
 import { PaymentHistory } from "@/components/PaymentHistory";
+import { Badge } from "@/components/ui/badge";
+import { usePaymentCount } from "@/hooks/usePaymentCount";
 import {
   Sheet,
   SheetContent,
@@ -16,6 +18,7 @@ import { useState } from "react";
 export function MobileNav() {
   const [open, setOpen] = useState(false);
   const [paymentHistoryOpen, setPaymentHistoryOpen] = useState(false);
+  const { count } = usePaymentCount();
 
   return (
     <>
@@ -46,6 +49,14 @@ export function MobileNav() {
             >
               <Receipt className="h-4 w-4" />
               Payment History
+              {count > 0 && (
+                <Badge 
+                  variant="secondary" 
+                  className="ml-auto h-5 min-w-5 px-1.5 flex items-center justify-center text-xs"
+                >
+                  {count > 99 ? '99+' : count}
+                </Badge>
+              )}
             </Button>
             <Link to="/docs" onClick={() => setOpen(false)}>
               <Button variant="outline" className="w-full gap-2 justify-start">
