@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Receipt, ExternalLink, ChevronLeft, ChevronRight, TrendingUp, Hash, PieChart, Download, FileText, CalendarIcon, Filter, X } from "lucide-react";
+import { Loader2, Receipt, ExternalLink, ChevronLeft, ChevronRight, TrendingUp, Hash, PieChart, Download, FileText, CalendarIcon, Filter, X, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { usePiAuth } from "@/contexts/PiAuthContext";
 import { toast } from "sonner";
@@ -333,7 +333,28 @@ export const PaymentHistory = () => {
           <span className="ml-2 text-muted-foreground">Loading payments...</span>
         </div>
       ) : payments.length === 0 && !hasActiveFilters() ? (
-        <div className="py-4" />
+        <div className="text-center py-12 px-4">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
+            <Sparkles className="h-8 w-8 text-primary" />
+          </div>
+          <h3 className="text-lg font-semibold text-foreground mb-2">Get Started with Premium</h3>
+          <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto">
+            Unlock powerful verification features by making your first Pi payment
+          </p>
+          <Button 
+            onClick={() => {
+              // Close the sheet and scroll to pricing/features section
+              const featuresSection = document.getElementById('features');
+              if (featuresSection) {
+                featuresSection.scrollIntoView({ behavior: 'smooth' });
+              }
+            }}
+            className="gap-2"
+          >
+            <Sparkles className="h-4 w-4" />
+            Explore Premium Features
+          </Button>
+        </div>
       ) : (
         <div className="space-y-4">
           {/* Summary Card */}
