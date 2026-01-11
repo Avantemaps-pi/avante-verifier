@@ -18,15 +18,34 @@ import { useState } from "react";
 export function MobileNav() {
   const [open, setOpen] = useState(false);
   const [paymentHistoryOpen, setPaymentHistoryOpen] = useState(false);
-  const { count } = usePaymentCount();
+  const { count, newCount, hasNotification, markAsViewed } = usePaymentCount();
+
+  const handlePaymentHistoryOpen = () => {
+    setOpen(false);
+    setPaymentHistoryOpen(true);
+    markAsViewed();
+  };
+
+  const handlePaymentHistoryChange = (isOpen: boolean) => {
+    setPaymentHistoryOpen(isOpen);
+    if (isOpen) {
+      markAsViewed();
+    }
+  };
 
   return (
     <>
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetTrigger asChild>
-          <Button variant="outline" size="icon" className="sm:hidden">
+          <Button variant="outline" size="icon" className="sm:hidden relative">
             <Menu className="h-5 w-5" />
             <span className="sr-only">Toggle menu</span>
+            {hasNotification && (
+              <>
+                <span className="absolute -top-1 -right-1 h-3 w-3 bg-destructive rounded-full animate-ping" />
+                <span className="absolute -top-1 -right-1 h-3 w-3 bg-destructive rounded-full" />
+              </>
+            )}
           </Button>
         </SheetTrigger>
         <SheetContent side="right" className="w-72">
@@ -41,20 +60,19 @@ export function MobileNav() {
             </div>
             <Button 
               variant="outline" 
-              className="w-full gap-2 justify-start"
-              onClick={() => {
-                setOpen(false);
-                setPaymentHistoryOpen(true);
-              }}
+              className="w-full gap-2 justify-start relative"
+              onClick={handlePaymentHistoryOpen}
             >
               <Receipt className="h-4 w-4" />
               Payment History
               {count > 0 && (
                 <Badge 
-                  variant="secondary" 
-                  className="ml-auto h-5 min-w-5 px-1.5 flex items-center justify-center text-xs"
+                  variant={hasNotification ? "default" : "secondary"}
+                  className={`ml-auto h-5 min-w-5 px-1.5 flex items-center justify-center text-xs ${
+                    hasNotification ? "animate-pulse bg-primary" : ""
+                  }`}
                 >
-                  {count > 99 ? '99+' : count}
+                  {newCount > 0 ? `${newCount > 99 ? '99+' : newCount} new` : count > 99 ? '99+' : count}
                 </Badge>
               )}
             </Button>
@@ -68,7 +86,7 @@ export function MobileNav() {
         </SheetContent>
       </Sheet>
 
-      <Sheet open={paymentHistoryOpen} onOpenChange={setPaymentHistoryOpen}>
+      <Sheet open={paymentHistoryOpen} onOpenChange={handlePaymentHistoryChange}>
         <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Payment History</SheetTitle>
