@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Check, Zap, Shield, Crown } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -5,22 +6,28 @@ import { PiPaymentButton } from "@/components/PiPaymentButton";
 import { usePiAuth } from "@/contexts/PiAuthContext";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 interface PricingTier {
   name: string;
   description: string;
-  price: number;
+  monthlyPrice: number;
+  annualPrice: number;
   icon: React.ReactNode;
   features: string[];
   popular?: boolean;
   memo: string;
 }
 
+const ANNUAL_DISCOUNT = 0.20; // 20% discount
+
 const tiers: PricingTier[] = [
   {
     name: "Basic",
     description: "Essential verification for small businesses",
-    price: 1,
+    monthlyPrice: 1,
+    annualPrice: Math.round(1 * 12 * (1 - ANNUAL_DISCOUNT)),
     icon: <Zap className="h-6 w-6" />,
     memo: "Basic Verification Plan",
     features: [
@@ -33,7 +40,8 @@ const tiers: PricingTier[] = [
   {
     name: "Professional",
     description: "Advanced features for growing businesses",
-    price: 5,
+    monthlyPrice: 5,
+    annualPrice: Math.round(5 * 12 * (1 - ANNUAL_DISCOUNT)),
     icon: <Shield className="h-6 w-6" />,
     memo: "Professional Verification Plan",
     popular: true,
@@ -49,7 +57,8 @@ const tiers: PricingTier[] = [
   {
     name: "Enterprise",
     description: "Unlimited power for large organizations",
-    price: 20,
+    monthlyPrice: 20,
+    annualPrice: Math.round(20 * 12 * (1 - ANNUAL_DISCOUNT)),
     icon: <Crown className="h-6 w-6" />,
     memo: "Enterprise Verification Plan",
     features: [
@@ -66,6 +75,7 @@ const tiers: PricingTier[] = [
 
 export const PricingTable = () => {
   const { user } = usePiAuth();
+  const [isAnnual, setIsAnnual] = useState(false);
 
   const handlePaymentSuccess = (tierName: string) => {
     toast.success(`Successfully purchased ${tierName} plan!`, {
@@ -79,6 +89,10 @@ export const PricingTable = () => {
     });
   };
 
+  const getPrice = (tier: PricingTier) => isAnnual ? tier.annualPrice : tier.monthlyPrice;
+  const getBillingPeriod = () => isAnnual ? "per year" : "per month";
+  const getMemo = (tier: PricingTier) => `${tier.memo} - ${isAnnual ? "Annual" : "Monthly"}`;
+
   return (
     <section id="features" className="w-full max-w-6xl mx-auto py-12">
       <div className="text-center mb-10">
@@ -88,6 +102,24 @@ export const PricingTable = () => {
         <p className="text-muted-foreground max-w-2xl mx-auto">
           Select the verification tier that best fits your business needs. Pay securely with Pi.
         </p>
+
+        {/* Billing Toggle */}
+        <div className="flex items-center justify-center gap-3 mt-6">
+          <Label htmlFor="billing-toggle" className={`text-sm ${!isAnnual ? "text-foreground font-medium" : "text-muted-foreground"}`}>
+            Monthly
+          </Label>
+          <Switch
+            id="billing-toggle"
+            checked={isAnnual}
+            onCheckedChange={setIsAnnual}
+          />
+          <Label htmlFor="billing-toggle" className={`text-sm ${isAnnual ? "text-foreground font-medium" : "text-muted-foreground"}`}>
+            Annual
+          </Label>
+          <Badge variant="secondary" className="bg-primary/10 text-primary border-0">
+            Save 20%
+          </Badge>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 px-4">
@@ -116,9 +148,14 @@ export const PricingTable = () => {
 
             <CardContent className="flex-1">
               <div className="text-center mb-6">
-                <span className="text-4xl font-bold text-foreground">{tier.price}</span>
+                <span className="text-4xl font-bold text-foreground">{getPrice(tier)}</span>
                 <span className="text-2xl font-semibold text-primary ml-1">π</span>
-                <span className="text-muted-foreground text-sm block mt-1">per month</span>
+                <span className="text-muted-foreground text-sm block mt-1">{getBillingPeriod()}</span>
+                {isAnnual && (
+                  <span className="text-xs text-primary mt-1 block">
+                    Save {Math.round(tier.monthlyPrice * 12 * ANNUAL_DISCOUNT)}π vs monthly
+                  </span>
+                )}
               </div>
 
               <ul className="space-y-3">
@@ -134,9 +171,9 @@ export const PricingTable = () => {
             <CardFooter>
               {user ? (
                 <PiPaymentButton
-                  amount={tier.price}
-                  memo={tier.memo}
-                  metadata={{ tier: tier.name }}
+                  amount={getPrice(tier)}
+                  memo={getMemo(tier)}
+                  metadata={{ tier: tier.name, billing: isAnnual ? "annual" : "monthly" }}
                   onSuccess={() => handlePaymentSuccess(tier.name)}
                   onError={handlePaymentError}
                   className={`w-full ${
